@@ -1,0 +1,52 @@
+name: Build Meta CameraAccess IPA
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/build-cameraaccess.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 25
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
+    steps:
+      - name: Check out Meta CameraAccess 1.1.0
+        uses: actions/checkout@v7
+        with:
+          repository: meta/meta-wearables-dat-ios
+          ref: '1.1.0'
+          persist-credentials: false
+
+      - name: Build for physical iPhone
+        shell: bash
+        run: |
+          xcodebuild -version
+          bundle_id="com.github.${GITHUB_REPOSITORY_ID}.cameraaccess"
+          xcodebuild -project samples/CameraAccess/CameraAccess.xcodeproj -scheme CameraAccess -configuration Debug -destination 'generic/platform=iOS' -derivedDataPath "$RUNNER_TEMP/cameraaccess-build" "PRODUCT_BUNDLE_IDENTIFIER=$bundle_id" CODE_SIGNING_ALLOWED=NO build
+
+      - name: Package and verify unsigned IPA
+        shell: bash
+        run: |
+          app="$RUNNER_TEMP/cameraaccess-build/Build/Products/Debug-iphoneos/CameraAccess.app"
+          test -x "$app/CameraAccess"
+          bundle_id="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")"
+          test "$bundle_id" = "com.github.${GITHUB_REPOSITORY_ID}.cameraaccess"
+          staging="$(mktemp -d)"
+          mkdir "$staging/Payload"
+          ditto "$app" "$staging/Payload/CameraAccess.app"
+          cd "$staging"
+          zip -qry "$GITHUB_WORKSPACE/CameraAccess-unsigned.ipa" Payload
+          unzip -tq "$GITHUB_WORKSPACE/CameraAccess-unsigned.ipa"
+
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v7
+        with:
+          name: CameraAccess-unsigned
+          path: CameraAccess-unsigned.ipa
+          if-no-files-found: error
