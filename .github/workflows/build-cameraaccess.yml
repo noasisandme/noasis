@@ -16,11 +16,11 @@ jobs:
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
     steps:
-      - name: Check out Meta CameraAccess 1.1.0
+      - name: Check out Meta CameraAccess sample
         uses: actions/checkout@v7
         with:
           repository: meta/meta-wearables-dat-ios
-          ref: '1.1.0'
+          ref: main
           persist-credentials: false
 
       - name: Build for physical iPhone
